@@ -21,7 +21,7 @@ Private Const statusHeader As String = "Status"
 Private Const categoryHeader As String = "Category"
 Private Const dateOfDeathHeader As String = "Date Of Death"
 
-Public Sub ClassBuilder(path As String, sort As Boolean)
+Public Sub ClassBuilder(path As String)
     'Set the required headers
     Dim requiredHeaders() As String
     requiredHeaders = Split(idHeader & "," & familyNameHeader & "," & firstNameHeader & "," & middleNameHeader & "," & lastNameHeader & "," _
@@ -38,7 +38,7 @@ Public Function GetHouseholds() As Dictionary
     
     'Go through each row in the Redtail contacts and add the households and members
     Dim rw As Integer
-    For rw = 1 To UBound(m_datasheet.data, 1) - 1
+    For rw = 1 To UBound(m_datasheet.Data, 1) - 1
         'Skip rows if they have no family name
         Dim familyName As String
         familyName = GetData(familyNameHeader, rw)
@@ -65,8 +65,10 @@ Public Function GetHouseholds() As Dictionary
                 'The member isn't in the dictionary; add it
                 Dim memberFullName As String
                 memberFullName = CombineNameParts(memberFirstName, GetData(middleNameHeader, rw), memberLastName, GetData(suffixHeader, rw), GetData(nicknameHeader, rw))
+                Dim isActive As Boolean
+                isActive = (InStr(GetData(statusHeader, rw), "Active") > 0 And GetData(statusHeader, rw) <> "InActive")
                 tempHousehold.AddMember ClassConstructor.NewMember(memberFullName:=memberFullName, memberFirstName:=memberFirstName, memberLastName:=memberLastName, _
-                                                                    isActive:=(GetData(statusHeader, rw) = "Active"), isDeceased:=(Len(GetData(dateOfDeathHeader, rw)) > 0))
+                                                                    isActive:=isActive, isDeceased:=(Len(GetData(dateOfDeathHeader, rw)) > 0))
             End If
         End If
     Next rw
@@ -78,10 +80,6 @@ End Function
 Public Function GetData(headerName As String, datapoint As Integer) As String
     GetData = m_datasheet.GetData(headerName, datapoint)
 End Function
-
-Public Sub SetData(newData As String, headerName As String, datapoint As Integer)
-    m_datasheet.SetData newData, headerName, datapoint
-End Sub
 
 Public Sub FillWorksheet(sht As Worksheet)
     m_datasheet.FillWorksheet sht
