@@ -32,53 +32,42 @@ Public Sub ClassBuilder()
     Set m_datasheet = ClassConstructor.NewDataSheet(filePath:=vbNullString, wkstName:=worksheetName, reqHeaders:=requiredHeaders)
 End Sub
 
+Public Function GetData(headerName As String, datapoint As Integer) As String
+    GetData = m_datasheet.GetData(headerName, datapoint)
+End Function
+
 Public Sub AddManualBenes(accountDict As Dictionary)
-    If UBound(m_datasheet.data, 1) <= 1 Then
+    If UBound(m_datasheet.Data, 1) <= 1 Then
         'There are no manual beneficiaries
         Exit Sub
     End If
     
     'For each row in Manual Beneficiaries, find the account in the dictionary and add the beneficiary
     Dim rw As Integer
-    For rw = 1 To UBound(m_datasheet.data, 1) - 1
+    For rw = 1 To UBound(m_datasheet.Data, 1) - 1
         Dim foundAccount As clsAccount
         Set foundAccount = GetAccountFromRow(rw, accountDict)
         
-        If foundAccount Is Nothing Then
-            'The account wasn't found
-            Exit Sub
-        End If
-        
-        'The account was found in the dictionary. Get the beneficiary from the row
-        Dim foundBene As clsBeneficiary
-        Set foundBene = GetBeneFromRow(rw)
-        
-        'Given the row's action, call the corresponding function
-        Dim action As String
-        action = GetData(actionHeader, rw)
-        If action = "Added" Then
-            'Add the beneficiary to the account
-            foundAccount.AddBene foundBene
-        ElseIf action = "Updated" Then
-            'Update the beneficiary's information
-            foundAccount.UpdateBene GetData(beneIDHeader, rw), foundBene
-        ElseIf action = "Deleted" Then
-            'Remove the beneficiary from the account
-            foundAccount.RemoveBene foundBene
+        If Not foundAccount Is Nothing Then
+            'The account was found in the dictionary. Get the beneficiary from the row
+            Dim foundBene As clsBeneficiary
+            Set foundBene = GetBeneFromRow(rw)
+            
+            'Given the row's action, call the corresponding function
+            Dim action As String
+            action = GetData(actionHeader, rw)
+            If action = "Added" Then
+                'Add the beneficiary to the account
+                foundAccount.AddBene foundBene
+            ElseIf action = "Updated" Then
+                'Update the beneficiary's information
+                foundAccount.UpdateBene GetData(beneIDHeader, rw), foundBene
+            ElseIf action = "Deleted" Then
+                'Remove the beneficiary from the account
+                foundAccount.RemoveBene foundBene
+            End If
         End If
     Next rw
-End Sub
-
-Public Function GetData(headerName As String, datapoint As Integer) As String
-    GetData = m_datasheet.GetData(headerName, datapoint)
-End Function
-
-Public Sub SetData(newData As Variant, headerName As String, datapoint As Integer)
-    m_datasheet.SetData newData, headerName, datapoint
-End Sub
-
-Public Sub FillWorksheet(sht As Worksheet)
-    m_datasheet.FillWorksheet sht
 End Sub
 
 Private Function GetAccountFromRow(rw As Integer, accountDict As Dictionary) As clsAccount
@@ -106,5 +95,13 @@ Private Function GetBeneFromRow(rw As Integer) As clsBeneficiary
         End If
         .account.NameOfAccount = GetData(accountNameHeader, rw)
         .account.Number = GetData(accountNumberHeader, rw)
+        If Len(GetData(addDateHeader, rw)) > 0 Then
+            .AddDate = GetData(addDateHeader, rw)
+            .UpdatedDate = GetData(addDateHeader, rw)
+        End If
+        If Len(GetData(addedByHeader, rw)) > 0 Then
+            .AddedBy = GetData(addedByHeader, rw)
+            .UpdatedBy = GetData(addedByHeader, rw)
+        End If
     End With
 End Function
