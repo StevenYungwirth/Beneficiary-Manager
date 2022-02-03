@@ -118,5 +118,12 @@ Private Function GetBeneFromForm() As clsBeneficiary
     
     'Declare the beneficiary to return
     Set GetBeneFromForm = ClassConstructor.NewBene(beneName, beneLevel, benePercent)
+    
+    'Add the account information
+    GetBeneFromForm.account.NameOfAccount = m_currentBene.account.NameOfAccount
+    GetBeneFromForm.account.Number = m_currentBene.account.Number
+    GetBeneFromForm.account.ID = m_currentBene.account.ID
+    
+    'Add the beneficiary ID
     GetBeneFromForm.ID = m_currentBene.ID
 End Function

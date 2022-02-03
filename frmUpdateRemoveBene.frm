@@ -150,10 +150,11 @@ End Sub
 Private Sub FillAccountList(household As clsHousehold)
     'Add the household's accounts to the combo box
     Dim member As Variant
-    For Each member In household.Members.Items
+    For Each member In household.members.Items
         Dim account As Variant
         For Each account In member.accounts.Items
-            If account.Active Then
+            'Only allow the beneficiary to be modified if it's from an active non-TD account
+            If account.Active And account.Custodian <> "TD Ameritrade Institutional" Then
                 'The account is active; add it to the combobox
                 cbxAccount.AddItem account.NameOfAccount
                 
