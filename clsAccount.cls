@@ -8,7 +8,8 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Option Explicit
-Private m_id As Double
+Private m_morningstarID As String
+Private m_redtailID As Double
 Private m_name As String
 Private m_number As String
 Private m_balance As Double
@@ -16,21 +17,31 @@ Private m_owner As clsMember
 Private m_type As String
 Private m_custodian As String
 Private m_active As Boolean
-Private m_benes As Collection
-Private m_closeDate As Date
+Private m_benes As Dictionary
+Private m_openDate As String
+Private m_closeDate As String
+Private m_discretionary As Boolean
 Private m_tag As String
 
 Private Sub Class_Initialize()
-    Set m_benes = New Collection
+    Set m_benes = New Dictionary
     Set m_owner = New clsMember
 End Sub
 
-Public Property Get ID() As Double
-    ID = m_id
+Public Property Get morningstarID() As String
+    morningstarID = m_morningstarID
 End Property
 
-Public Property Let ID(value As Double)
-    m_id = value
+Public Property Let morningstarID(value As String)
+    m_morningstarID = value
+End Property
+
+Public Property Get redtailID() As Double
+    redtailID = m_redtailID
+End Property
+
+Public Property Let redtailID(value As Double)
+    m_redtailID = value
 End Property
 
 Public Property Get NameOfAccount() As String
@@ -57,11 +68,11 @@ Public Property Let Balance(value As Double)
     m_balance = value
 End Property
 
-Public Property Get Owner() As clsMember
-    Set Owner = m_owner
+Public Property Get owner() As clsMember
+    Set owner = m_owner
 End Property
 
-Public Property Let Owner(value As clsMember)
+Public Property Let owner(value As clsMember)
     Set m_owner = value
 End Property
 
@@ -93,19 +104,43 @@ Public Property Let Active(value As Boolean)
     m_active = value
 End Property
 
-Public Property Let CloseDate(value As Date)
-    m_closeDate = value
+Public Property Let openDate(value As String)
+    If value = vbNullString Then
+        m_openDate = value
+    Else
+        m_openDate = Format(value, "mm/dd/yyyy")
+    End If
 End Property
 
-Public Property Get CloseDate() As Date
-    CloseDate = m_closeDate
+Public Property Get openDate() As String
+    openDate = m_openDate
 End Property
 
-Public Property Get Benes() As Collection
+Public Property Let closeDate(value As String)
+    If value = vbNullString Then
+        m_closeDate = value
+    Else
+        m_closeDate = Format(value, "mm/dd/yyyy")
+    End If
+End Property
+
+Public Property Get closeDate() As String
+    closeDate = m_closeDate
+End Property
+
+Public Property Let Discretionary(value As Boolean)
+    m_discretionary = value
+End Property
+
+Public Property Get Discretionary() As Boolean
+    Discretionary = m_discretionary
+End Property
+
+Public Property Get Benes() As Dictionary
     Set Benes = m_benes
 End Property
 
-Public Property Get SortedBenes() As Collection
+Public Property Get SortedBenes() As Dictionary
     If m_benes.count <= 1 Then
         'Sorting isn't necessary
         Set SortedBenes = m_benes
@@ -117,10 +152,10 @@ Public Property Get SortedBenes() As Collection
     ReDim primaryArray(0) As clsBeneficiary
     Dim contingentArray() As clsBeneficiary
     ReDim contingentArray(0) As clsBeneficiary
-    Dim accountBene As Integer
-    For accountBene = 1 To m_benes.count
+    Dim accountBene As Variant
+    For Each accountBene In m_benes.Items
         Dim bene As clsBeneficiary
-        Set bene = m_benes(accountBene)
+        Set bene = accountBene
         If bene.Level = "P" Then
             AddToTopOfArray bene, primaryArray
         ElseIf bene.Level = "C" Then
@@ -135,15 +170,15 @@ Public Property Get SortedBenes() As Collection
     SortBenes beneArr:=contingentArray, One_Percent_Two_Name:=2
     
     'Convert the arrays back into a collection and return it
-    Set SortedBenes = New Collection
+    Set SortedBenes = New Dictionary
     If Not primaryArray(0) Is Nothing Then
         For accountBene = LBound(primaryArray) To UBound(primaryArray)
-            SortedBenes.Add primaryArray(accountBene)
+            SortedBenes.Add accountBene, primaryArray(accountBene)
         Next accountBene
     End If
     If Not contingentArray(0) Is Nothing Then
         For accountBene = LBound(contingentArray) To UBound(contingentArray)
-            SortedBenes.Add contingentArray(accountBene)
+            SortedBenes.Add UBound(primaryArray) + accountBene + 1, contingentArray(accountBene)
         Next accountBene
     End If
 End Property
@@ -159,29 +194,58 @@ End Property
 Public Function BenesUpdated() As Date
     'Get the most recent update date from the beneficiaries
     Dim mostRecentDate As Date
-    Dim bene As Variant
-    For Each bene In m_benes
-        If bene.UpdatedDate > mostRecentDate Then
-            mostRecentDate = bene.UpdatedDate
+    Dim beneItem As Variant
+    For Each beneItem In m_benes.Items
+        Dim bene As clsBeneficiary
+        Set bene = beneItem
+        Dim beneUpdateDate As Date
+        If bene.UpdatedDate = vbNullString Then
+            beneUpdateDate = CDate(0)
+        Else
+            beneUpdateDate = CDate(bene.UpdatedDate)
         End If
-    Next bene
+        If beneUpdateDate > mostRecentDate Then
+            mostRecentDate = beneUpdateDate
+        End If
+    Next beneItem
     BenesUpdated = mostRecentDate
 End Function
 
-Public Sub AddBene(beneToAdd As clsBeneficiary)
+Public Sub AddBene(beneToAdd As clsBeneficiary, hasID As Boolean)
     If Not beneToAdd Is Nothing Then
+        Dim beneKey As String
+        If hasID Then
+            beneKey = beneToAdd.id
+        Else
+            beneKey = beneToAdd.NameOfBeneficiary & beneToAdd.Level & beneToAdd.Percent
+        End If
+        
+        Dim counter As Integer
+        Do While m_benes.Exists(beneKey)
+            counter = counter + 1
+            beneKey = beneKey & counter
+            
+            Dim errorString As String
+            With beneToAdd
+                errorString = "Duplicate beneficiary found for " & .account.NameOfAccount & " " & .account.Number & ": " & .NameOfBeneficiary & " " & .Level & " " & .Percent
+            End With
+            ErrorHandling.LogErrorToFile errorString
+        Loop
+        
         beneToAdd.account = Me
-        m_benes.Add beneToAdd
+        m_benes.Add beneKey, beneToAdd
     End If
 End Sub
 
 Public Function GetBene(beneName As String) As clsBeneficiary
-    Dim bene As Variant
-    For Each bene In m_benes
+    Dim beneItem As Variant
+    For Each beneItem In m_benes.Items
+        Dim bene As clsBeneficiary
+        Set bene = beneItem
         If bene.NameOfBeneficiary = beneName Then
             Set GetBene = bene
         End If
-    Next bene
+    Next beneItem
 End Function
 
 Public Sub UpdateBene(beneIDToUpdate As Double, NewBene As clsBeneficiary)
@@ -191,19 +255,30 @@ Public Sub UpdateBene(beneIDToUpdate As Double, NewBene As clsBeneficiary)
         .NameOfBeneficiary = NewBene.NameOfBeneficiary
         .Level = NewBene.Level
         .Percent = NewBene.Percent
-        .UpdatedDate = NewBene.AddDate
-        .UpdatedBy = NewBene.AddedBy
+        .UpdatedDate = NewBene.addDate
+        .updatedBy = NewBene.AddedBy
     End With
 End Sub
 
 Public Sub RemoveBene(beneToRemove As clsBeneficiary)
-    Dim bene As Integer
-    For bene = 1 To m_benes.count
-        If m_benes(bene).NameOfBeneficiary = beneToRemove.NameOfBeneficiary And m_benes(bene).Level = beneToRemove.Level And m_benes(bene).Percent = beneToRemove.Percent Then
-            m_benes.Remove bene
-            Exit Sub
-        End If
-    Next bene
+    If m_benes.Exists(CStr(beneToRemove.id)) Then
+        m_benes.Remove CStr(beneToRemove.id)
+    Else
+        Dim beneItem As Variant
+        For Each beneItem In m_benes.Items
+            Dim bene As clsBeneficiary
+            Set bene = beneItem
+            If bene.id = beneToRemove.id Then
+                If Not m_benes.Exists(CStr(beneToRemove.id)) Then Stop
+                m_benes.Remove CStr(beneToRemove.id)
+                Exit Sub
+            ElseIf bene.NameOfBeneficiary = beneToRemove.NameOfBeneficiary And bene.Level = beneToRemove.Level And bene.Percent = beneToRemove.Percent Then
+                If Not m_benes.Exists(CStr(bene.id)) Then Stop
+                m_benes.Remove CStr(bene.id)
+                Exit Sub
+            End If
+        Next beneItem
+    End If
 End Sub
 
 Private Sub AddToTopOfArray(value As clsBeneficiary, arr() As clsBeneficiary)
@@ -241,10 +316,12 @@ Private Sub SortBenes(beneArr() As clsBeneficiary, One_Percent_Two_Name As Integ
 End Sub
 
 Private Function GetBeneByID(beneID As Double) As clsBeneficiary
-    Dim bene As Variant
-    For Each bene In m_benes
-        If bene.ID = beneID Then
+    Dim beneItem As Variant
+    For Each beneItem In m_benes.Items
+        Dim bene As clsBeneficiary
+        Set bene = beneItem
+        If bene.id = beneID Then
             Set GetBeneByID = bene
         End If
-    Next bene
+    Next beneItem
 End Function

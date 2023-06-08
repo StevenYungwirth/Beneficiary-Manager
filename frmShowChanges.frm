@@ -2,8 +2,8 @@ VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmShowChanges 
    Caption         =   "XML File Changes"
    ClientHeight    =   12480
-   ClientLeft      =   45
-   ClientTop       =   390
+   ClientLeft      =   48
+   ClientTop       =   396
    ClientWidth     =   14640
    OleObjectBlob   =   "frmShowChanges.frx":0000
    StartUpPosition =   1  'CenterOwner
@@ -97,22 +97,22 @@ Public Sub ShowAddedNodes(addedNodes As Dictionary)
             Set elements = addedNodes.Items(category)
             Dim element As Variant
             For Each element In elements
-                If elements.count > 0 And addedNodes.Keys(category) = "Households" Then
+                If elements.count > 0 And addedNodes.Keys(category) = "Household" Then
                     Dim household As clsHousehold
                     Set household = element
                     AddToHouseholdBox lbxHouseholdsAdded, household
-                    AddMembersToBox household.Members
-                ElseIf elements.count > 0 And addedNodes.Keys(category) = "Members" Then
+                    AddMembersToBox household.members
+                ElseIf elements.count > 0 And addedNodes.Keys(category) = "Member" Then
                     Dim member As clsMember
                     Set member = element
                     AddToMemberBox lbxMembersAdded, member
-                    AddAccountsToBox member.accounts
-                ElseIf elements.count > 0 And addedNodes.Keys(category) = "Accounts" Then
+                    AddAccountsToBox member.Accounts
+                ElseIf elements.count > 0 And addedNodes.Keys(category) = "Account" Then
                     Dim account As clsAccount
                     Set account = element
                     AddToAccountBox lbxAccountsAdded, account
                     AddBenesToBox account.Benes
-                ElseIf elements.count > 0 And addedNodes.Keys(category) = "Beneficiaries" Then
+                ElseIf elements.count > 0 And addedNodes.Keys(category) = "Beneficiary" Then
                     Dim bene As clsBeneficiary
                     Set bene = element
                     AddToBeneBox lbxBenesAdded, bene
@@ -130,22 +130,22 @@ End Sub
 
 Public Sub ShowDeletedNodes(deletedNodes As IXMLDOMNodeList)
     'For each node, add it to the corresponding listbox
-    Dim node As Variant
-    For Each node In deletedNodes
-        Dim SelectedNode As IXMLDOMElement
-        Set SelectedNode = node
-        With SelectedNode
+    Dim Node As Variant
+    For Each Node In deletedNodes
+        Dim selectedNode As IXMLDOMElement
+        Set selectedNode = Node
+        With selectedNode
             If .BaseName = "Household" Then
-                AddToHouseholdBox lbxHouseholdsRemoved, XMLReadWrite.ReadHouseholdFromNode(SelectedNode)
+                AddToHouseholdBox lbxHouseholdsRemoved, XMLRead.HouseholdFromNode(selectedNode, False)
             ElseIf .BaseName = "Member" Then
-                AddToMemberBox lbxMembersRemoved, XMLReadWrite.ReadMemberFromNode(SelectedNode)
+                AddToMemberBox lbxMembersRemoved, XMLRead.MemberFromNode(selectedNode, False)
             ElseIf .BaseName = "Account" Then
-                AddToAccountBox lbxAccountsRemoved, XMLReadWrite.ReadAccountFromNode(SelectedNode)
+                AddToAccountBox lbxAccountsRemoved, XMLRead.AccountFromNode(selectedNode, False)
             ElseIf .BaseName = "Beneficiary" Then
-                AddToBeneBox lbxBenesRemoved, XMLReadWrite.ReadBeneficiaryFromNode(SelectedNode)
+                AddToBeneBox lbxBenesRemoved, XMLRead.BeneficiaryFromNode(selectedNode)
             End If
         End With
-    Next node
+    Next Node
     
 '    'Sort the listboxes
 '    SortListBox lbxHouseholdsRemoved
@@ -154,19 +154,19 @@ Public Sub ShowDeletedNodes(deletedNodes As IXMLDOMNodeList)
 '    SortListBox lbxBenesRemoved
 End Sub
 
-Private Sub AddMembersToBox(Members As Dictionary)
+Private Sub AddMembersToBox(members As Dictionary)
     Dim member As Variant
-    For Each member In Members.Items
+    For Each member In members.Items
         Dim memberItem As clsMember
         Set memberItem = member
         AddToMemberBox lbxMembersAdded, memberItem
-        AddAccountsToBox memberItem.accounts
+        AddAccountsToBox memberItem.Accounts
     Next member
 End Sub
 
-Private Sub AddAccountsToBox(accounts As Dictionary)
+Private Sub AddAccountsToBox(Accounts As Dictionary)
     Dim account As Variant
-    For Each account In accounts.Items
+    For Each account In Accounts.Items
         Dim accountItem As clsAccount
         Set accountItem = account
         AddToAccountBox lbxAccountsAdded, accountItem
@@ -174,9 +174,9 @@ Private Sub AddAccountsToBox(accounts As Dictionary)
     Next account
 End Sub
 
-Private Sub AddBenesToBox(Benes As Collection)
+Private Sub AddBenesToBox(Benes As Dictionary)
     Dim bene As Variant
-    For Each bene In Benes
+    For Each bene In Benes.Items
         Dim beneItem As clsBeneficiary
         Set beneItem = bene
         AddToBeneBox lbxBenesAdded, beneItem
@@ -194,7 +194,7 @@ Private Sub AddToMemberBox(memberBox As MSForms.ListBox, member As clsMember)
         Dim topOfList As Integer
         topOfList = .ListCount
         .AddItem
-        .List(topOfList, 0) = member.FName & " " & member.LName
+        .List(topOfList, 0) = member.fName & " " & member.lName
         .List(topOfList, 1) = member.ContainingHousehold.NameOfHousehold
     End With
 End Sub
@@ -208,8 +208,8 @@ Private Sub AddToAccountBox(accountBox As MSForms.ListBox, account As clsAccount
         .List(topOfList, 0) = account.NameOfAccount
         .List(topOfList, 1) = account.Number
         .List(topOfList, 2) = account.TypeOfAccount
-        .List(topOfList, 3) = account.Owner.NameOfMember
-        .List(topOfList, 4) = account.Owner.ContainingHousehold.NameOfHousehold
+        .List(topOfList, 3) = account.owner.NameOfMember
+        .List(topOfList, 4) = account.owner.ContainingHousehold.NameOfHousehold
     End With
 End Sub
 
@@ -223,8 +223,8 @@ Private Sub AddToBeneBox(beneBox As MSForms.ListBox, bene As clsBeneficiary)
         .List(topOfList, 1) = bene.Level
         .List(topOfList, 2) = bene.Percent
         .List(topOfList, 3) = bene.account.NameOfAccount
-        .List(topOfList, 4) = bene.account.Owner.NameOfMember
-        .List(topOfList, 5) = bene.account.Owner.ContainingHousehold.NameOfHousehold
+        .List(topOfList, 4) = bene.account.owner.NameOfMember
+        .List(topOfList, 5) = bene.account.owner.ContainingHousehold.NameOfHousehold
     End With
 End Sub
 

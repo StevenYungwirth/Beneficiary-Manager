@@ -2,9 +2,9 @@ VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmOverride 
    Caption         =   "Modify Override"
    ClientHeight    =   3480
-   ClientLeft      =   45
-   ClientTop       =   390
-   ClientWidth     =   5790
+   ClientLeft      =   48
+   ClientTop       =   396
+   ClientWidth     =   5784
    OleObjectBlob   =   "frmOverride.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -15,14 +15,17 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Explicit
 Private m_overrides As IXMLDOMNodeList
-Private m_xmlFile As DOMDocument60
 
-Private Property Get SelectedNode() As IXMLDOMElement
+Private Property Get selectedNode() As IXMLDOMElement
     If lbxOverrides.ListIndex <> -1 Then
-        Set SelectedNode = m_overrides(lbxOverrides.ListIndex)
+        Set selectedNode = m_overrides(lbxOverrides.ListIndex)
     Else
-        Set SelectedNode = Nothing
+        Set selectedNode = Nothing
     End If
+End Property
+
+Private Property Get XMLClientList() As DOMDocument60
+    Set XMLClientList = ProjectGlobals.ClientListFile
 End Property
 
 Private Sub UserForm_Initialize()
@@ -36,18 +39,11 @@ Private Sub UserForm_Initialize()
     fraAdd.Visible = False
     btnOK.Enabled = False
     
-    'Load the XML file
-    Set m_xmlFile = XMLReadWrite.LoadClientList
-    
     'Load the overrides
     FillListBox
                 
     'Set the listbox column widths
     lbxOverrides.ColumnWidths = "100,30,60"
-End Sub
-
-Private Sub UserForm_Terminate()
-    Set m_xmlFile = Nothing
 End Sub
 
 Private Sub rdoAdd_Click()
@@ -139,7 +135,7 @@ Private Sub btnOK_Click()
     
     If changesMade Then
         'Save the XML file
-        m_xmlFile.Save XMLReadWrite.ClientListFile
+        XMLClientList.Save ProjectGlobals.ClientListFilePath
     
         'Hide the form
         Me.Hide
@@ -153,14 +149,14 @@ End Sub
 
 Private Sub FillListBox()
     'Get the override nodes
-    Set m_overrides = m_xmlFile.SelectNodes("//Override")
+    Set m_overrides = XMLClientList.SelectNodes("//Override")
         
     'For each node, show the account name, override type, override value in the listbox
-    Dim node As Variant
-    For Each node In m_overrides
+    Dim Node As Variant
+    For Each Node In m_overrides
         'Set the current node
         Dim overrideNode As IXMLDOMElement
-        Set overrideNode = node
+        Set overrideNode = Node
         
         'Get the parent node (Account)
         Dim overrideAccount As IXMLDOMElement
@@ -182,12 +178,12 @@ Private Sub FillListBox()
                 .List(overrideCount, 2) = overrideNode.Attributes(0).Text
             End With
         End If
-    Next node
+    Next Node
 End Sub
 
-Private Function GetNodeAttribute(attributeName As String, node As IXMLDOMElement) As Variant
-    If Not IsNull(node.getAttribute(attributeName)) Then
-        GetNodeAttribute = node.getAttribute(attributeName)
+Private Function GetNodeAttribute(attributeName As String, Node As IXMLDOMElement) As Variant
+    If Not IsNull(Node.getAttribute(attributeName)) Then
+        GetNodeAttribute = Node.getAttribute(attributeName)
     End If
 End Function
 
@@ -230,41 +226,75 @@ Private Function AddOverride() As Boolean
     Dim householdIndex As Integer, accountIndex As Integer
     householdIndex = frmSelect.SelectedHouseholdIndex
     accountIndex = frmSelect.SelectedAccountIndex
-    
+
     'Get the list of households
     Dim households As IXMLDOMNodeList
-    Set households = m_xmlFile.SelectNodes("//Household[@Active='True']")
-    
+    Set households = XMLClientList.SelectNodes("//Household[@Active='True']")
+
     'Get the household node
     Dim householdNode As IXMLDOMNode
     Set householdNode = households(householdIndex)
-    
+
     'Get the household's accounts
     Dim accountNodes As IXMLDOMNodeList
     Set accountNodes = householdNode.SelectNodes(".//Account")
-    
+
     'Get the selected account node
-    Dim accountNode As IXMLDOMNode
+    Dim accountNode As IXMLDOMElement
     Set accountNode = accountNodes(accountIndex)
+
+    If Not accountNode Is Nothing Then
+        'The account node was found. Initialize the override node
+        Dim accountOverride As IXMLDOMElement
+        
+        'Check if there's already an override node
+        If accountNode.SelectSingleNode("Override") Is Nothing Then
+            'The account doesn't already have an override, create the node and add it
+            Set accountOverride = XMLClientList.createNode(1, "Override", "")
+            accountOverride.setAttribute GetOverrideType, GetOverrideValue
+            
+            'Add the override node to the account node
+            accountNode.appendChild accountOverride
+            AddOverride = True
+        Else
+            'The account already has an override. See if the one being added contradicts the one already there
+            Set accountOverride = accountNode.SelectSingleNode("Override")
+            If GetOverrideType = "Active" And Not IsNull(accountOverride.getAttribute("Active")) Then
+                'The existing override is for the Active status
+                If CBool(accountOverride.getAttribute("Active")) = Not CBool(GetOverrideValue) Then
+                    'The overrides contradict, so the one being added is how the account should be. Remove the active override entirely
+                    accountOverride.removeAttribute "Active"
+                Else
+                    'The overrides are the same, so don't add another
+                End If
+            ElseIf GetOverrideType = "Tag" And Not IsNull(accountOverride.getAttribute("Tag")) Then
+                'The existing override is for the Tag. Check if the override being added equals the one already there
+                If accountOverride.getAttribute("Tag") <> GetOverrideValue Then
+                    'The existing tag is different than the one being added. Add the override
+                    accountOverride.setAttribute GetOverrideType, GetOverrideValue
+                    AddOverride = True
+                Else
+                    'The overrides are the same, so don't add another
+                End If
+            Else
+                'The existing override doesn't have any attributes. Add the override
+                accountOverride.setAttribute GetOverrideType, GetOverrideValue
+                AddOverride = True
+            End If
+        End If
+    
+        'Show confirmation if the override was added
+        If AddOverride Then
+            MsgBox GetOverrideType & ": " & GetOverrideValue & " override added to " & accountNode.Attributes(1).Text
+        End If
+    Else
+        'The account node wasn't found. Throw an error
+        MsgBox "Account not found in XML file; override not added."
+        AddOverride = False
+    End If
     
     'Unload the form
     Unload frmSelect
-    
-    If Not accountNode Is Nothing Then
-        'Create the new override node
-        Dim overrideNode As IXMLDOMElement
-        Set overrideNode = m_xmlFile.createNode(1, "Override", "")
-        overrideNode.setAttribute GetOverrideType, GetOverrideValue
-        
-        'Add the override node to the account node
-        accountNode.appendChild overrideNode
-        
-        'Show confirmation
-        MsgBox GetOverrideType & ": " & GetOverrideValue & " override added to " & accountNode.Attributes(1).Text
-        
-        'Return true
-        AddOverride = True
-    End If
 End Function
 
 Private Function GetOverrideType() As String
@@ -289,13 +319,13 @@ Private Function UpdateOverride() As Boolean
     'Show a form for new override values
     Dim frmUpdate As frmOverrideUpdate
     Set frmUpdate = New frmOverrideUpdate
-    frmUpdate.LoadOverride SelectedNode
+    frmUpdate.LoadOverride selectedNode
     frmUpdate.Show
     
     'Check if the override value changed
-    If SelectedNode.getAttribute(frmUpdate.OverrideType) <> frmUpdate.OverrideValue Then
+    If selectedNode.getAttribute(frmUpdate.OverrideType) <> frmUpdate.OverrideValue Then
         'Update the override node
-        SelectedNode.setAttribute frmUpdate.OverrideType, frmUpdate.OverrideValue
+        selectedNode.setAttribute frmUpdate.OverrideType, frmUpdate.OverrideValue
         UpdateOverride = True
     End If
     
@@ -308,7 +338,7 @@ End Function
 
 Private Function RemoveOverride() As Boolean
     'Remove the node from its parent
-    SelectedNode.parentNode.RemoveChild SelectedNode
+    selectedNode.parentNode.RemoveChild selectedNode
     
     'Show confirmation
     MsgBox "Override has been removed."

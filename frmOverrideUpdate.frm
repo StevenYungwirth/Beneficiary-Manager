@@ -2,9 +2,9 @@ VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmOverrideUpdate 
    Caption         =   "Update Override"
    ClientHeight    =   1725
-   ClientLeft      =   45
-   ClientTop       =   390
-   ClientWidth     =   2325
+   ClientLeft      =   48
+   ClientTop       =   396
+   ClientWidth     =   2328
    OleObjectBlob   =   "frmOverrideUpdate.frx":0000
    StartUpPosition =   1  'CenterOwner
 End

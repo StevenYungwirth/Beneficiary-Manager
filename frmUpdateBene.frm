@@ -2,9 +2,9 @@ VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmUpdateBene 
    Caption         =   "Update Beneficiary"
    ClientHeight    =   3030
-   ClientLeft      =   45
-   ClientTop       =   390
-   ClientWidth     =   9390
+   ClientLeft      =   48
+   ClientTop       =   396
+   ClientWidth     =   9384.001
    OleObjectBlob   =   "frmUpdateBene.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -65,7 +65,7 @@ End Sub
 
 Private Sub btnUpdate_Click()
     'Update the beneficiary in the XML file
-    m_beneUpdated = XMLReadWrite.UpdateRemoveBene(1, m_currentBene, GetBeneFromForm)
+    m_beneUpdated = XMLWrite.UpdateRemoveBene(1, m_currentBene, GetBeneFromForm)
     If m_beneUpdated Then
         'Beneficiary has been updated; show confirmation
         MsgBox "Beneficiary has been updated."
@@ -122,8 +122,8 @@ Private Function GetBeneFromForm() As clsBeneficiary
     'Add the account information
     GetBeneFromForm.account.NameOfAccount = m_currentBene.account.NameOfAccount
     GetBeneFromForm.account.Number = m_currentBene.account.Number
-    GetBeneFromForm.account.ID = m_currentBene.account.ID
+    GetBeneFromForm.account.redtailID = m_currentBene.account.redtailID
     
     'Add the beneficiary ID
-    GetBeneFromForm.ID = m_currentBene.ID
+    GetBeneFromForm.id = m_currentBene.id
 End Function

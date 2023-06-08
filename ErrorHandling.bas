@@ -1,6 +1,6 @@
 Attribute VB_Name = "ErrorHandling"
 Option Explicit
-Private Const errorFileName As String = "Z:\YungwirthSteve\Beneficiary Report\Assets\errors.txt"
+Private Const errorFileName As String = "Z:\FPIS - Operations\Beneficiary Project\Assets\errors.txt"
 
 Public Sub LogErrorToFile(errorString As String)
     'Open a text file to write errors to
