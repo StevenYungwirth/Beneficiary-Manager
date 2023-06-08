@@ -1,12 +1,11 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmImport 
    Caption         =   "Select Files to Import"
-   ClientHeight    =   3165
-   ClientLeft      =   45
-   ClientTop       =   390
-   ClientWidth     =   4095
+   ClientHeight    =   3756
+   ClientLeft      =   48
+   ClientTop       =   396
+   ClientWidth     =   4092
    OleObjectBlob   =   "frmImport.frx":0000
-   StartUpPosition =   1  'CenterOwner
 End
 Attribute VB_Name = "frmImport"
 Attribute VB_GlobalNameSpace = False
@@ -18,6 +17,7 @@ Private m_tdaBeneFile As String
 Private m_msAccountsFile As String
 Private m_rtAccountsFile As String
 Private m_rtContactsFile As String
+Private m_msHouseholdExportFile As String
 
 Public Property Get TDABeneFile() As String
     TDABeneFile = m_tdaBeneFile
@@ -33,6 +33,10 @@ End Property
 
 Public Property Get RTContactsFile() As String
     RTContactsFile = m_rtContactsFile
+End Property
+
+Public Property Get MSHouseholdExportFile() As String
+    MSHouseholdExportFile = m_msHouseholdExportFile
 End Property
 
 Private Sub UserForm_Initialize()
@@ -56,6 +60,10 @@ End Sub
 
 Private Sub chkRTContacts_Click()
     chkClick m_rtContactsFile, chkRTContacts
+End Sub
+
+Private Sub chkMSHouseholdExport_Click()
+    chkClick m_msHouseholdExportFile, chkMSHouseholdExport
 End Sub
 
 Private Sub chkClick(ByRef filePath As String, chk As Object)
@@ -86,7 +94,11 @@ Private Function SelectFile() As String
         .AllowMultiSelect = False
         .Filters.Clear
         .Filters.Add "Excel Files", "*.csv; *.xls*", 1
-        .InitialFileName = "Z:\"
+        If InStr(ThisWorkbook.name, "working copy") > 0 Then
+            .InitialFileName = "Z:\FPIS - Operations\Beneficiary Project\Archive\"
+        Else
+            .InitialFileName = "Z:\"
+        End If
         .Show
         
         'Get the selected file

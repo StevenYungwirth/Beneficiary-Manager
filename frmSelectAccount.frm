@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmSelectAccount 
    Caption         =   "Select an Account"
-   ClientHeight    =   2535
-   ClientLeft      =   45
-   ClientTop       =   390
-   ClientWidth     =   6735
+   ClientHeight    =   2532
+   ClientLeft      =   48
+   ClientTop       =   396
+   ClientWidth     =   6732
    OleObjectBlob   =   "frmSelectAccount.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -28,6 +28,10 @@ End Property
 
 Public Property Get SelectedAccountIndex() As Integer
     SelectedAccountIndex = cbxAccount.ListIndex
+End Property
+
+Private Property Get XMLClientList() As DOMDocument60
+    Set XMLClientList = ProjectGlobals.ClientListFile
 End Property
 
 Private Sub UserForm_Initialize()
@@ -92,23 +96,19 @@ Private Sub btnCancel_Click()
 End Sub
 
 Public Sub FillHouseholdList()
-    'Load the XML file
-    Dim xmlFile As DOMDocument60
-    Set xmlFile = XMLReadWrite.LoadClientList
-    
     'Get the household nodes
-    Set m_householdNodes = xmlFile.SelectNodes("//Household[@Active='True']")
+    Set m_householdNodes = XMLClientList.SelectNodes("//Household[@Active='True']")
     
     'Add the list of households to the combobox
     Dim household As Integer
     For household = 0 To m_householdNodes.Length - 1
         'Get the household from the node
-        Dim householdFromNode As clsHousehold
-        Set householdFromNode = XMLReadWrite.ReadHouseholdFromNode(m_householdNodes(household))
+        Dim HouseholdFromNode As clsHousehold
+        Set HouseholdFromNode = XMLRead.HouseholdFromNode(m_householdNodes(household), True)
         
-        'Add the household to the combox if it's active
-        If householdFromNode.Active Then
-            cbxHousehold.AddItem householdFromNode.NameOfHousehold
+        'Add the household to the combo box if it's active
+        If HouseholdFromNode.Active Then
+            cbxHousehold.AddItem HouseholdFromNode.NameOfHousehold
         End If
     Next household
 End Sub
@@ -120,21 +120,21 @@ Private Sub FillAccountList()
     End If
     
     'Get the selected household
-    Dim selectedHousehold As IXMLDOMNode
-    Set selectedHousehold = m_householdNodes(cbxHousehold.ListIndex)
+    Dim SelectedHousehold As IXMLDOMNode
+    Set SelectedHousehold = m_householdNodes(cbxHousehold.ListIndex)
     
     'Get the account nodes in the selected household
-    Set m_accountNodes = selectedHousehold.SelectNodes(".//Account")
+    Set m_accountNodes = SelectedHousehold.SelectNodes(".//Account")
     
     'Add the household's accounts to the combo box
     Dim account As Integer
     For account = 0 To m_accountNodes.Length - 1
         'Get the account from the node
-        Dim accountFromNode As clsAccount
-        Set accountFromNode = XMLReadWrite.ReadAccountFromNode(m_accountNodes(account))
+        Dim AccountFromNode As clsAccount
+        Set AccountFromNode = XMLRead.AccountFromNode(m_accountNodes(account), False)
         
         'Add the account to the combobox
-        cbxAccount.AddItem accountFromNode.NameOfAccount
+        cbxAccount.AddItem AccountFromNode.NameOfAccount
     Next account
 End Sub
 

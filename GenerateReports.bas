@@ -4,6 +4,7 @@ Private PrintRange As Range
 Private Const IneligibleBlurb As String = "Account not eligible for beneficiaries"
 Private Const AssociatedBlurb As String = "Beneficiary information isn't available online. Please call Associated Bank at 800-236-8866 to verify or change your beneficiaries."
 Private Const WECBlurb As String = "Beneficiary information isn't available online. Please contact WEC's Human Resources department at 800-499-2800 to verify or change your beneficiaries."
+Private Const EdvestBlurb As String = "Successor account owner designation is available. Please give us a call if you would like to add a successor account owner."
 
 Private Property Get IneligibleAccounts() As String()
     'Return the list of account types that aren't eligible for beneficiaries
@@ -87,7 +88,7 @@ Public Function GenerateReportFromHousehold(household As clsHousehold) As Workbo
     
     'Create a new workbook
     Dim reportBook As Workbook
-    Set reportBook = Workbooks.Add("Z:\YungwirthSteve\Beneficiary Report\Assets\Bene Template.xltx")
+    Set reportBook = Workbooks.Add("Z:\FPIS - Operations\Beneficiary Project\Assets\Bene Template.xltx")
     Dim reportSheet As Worksheet
     Set reportSheet = reportBook.Sheets(1)
     
@@ -119,7 +120,11 @@ Private Sub BuildReport(reportSheet As Worksheet, household As clsHousehold)
     NextLine
     
     'Put household name on report
-    PrintRange.Value2 = household.NameOfHousehold
+    If household.NameOfHousehold = "Schaefer, Russell & Patricia" Then
+        PrintRange.Value2 = "S, Russell & Patricia"
+    Else
+        PrintRange.Value2 = household.NameOfHousehold
+    End If
     PrintRange.Font.Bold = True
     PrintRange.Font.Size = 12
     reportSheet.Range(PrintRange, PrintRange.Offset(0, 2)).Merge across:=True
@@ -137,14 +142,18 @@ Private Sub BuildReport(reportSheet As Worksheet, household As clsHousehold)
     'Put each member onto the report
     Dim member As Integer
     For member = 0 To householdMembers.count - 1
+        'Get the member
+        Dim householdMember As clsMember
+        Set householdMember = householdMembers.Items(member)
+        
         'Add the member if they are not deceased and have accounts
-        If householdMembers.Items(member).Active And householdMembers.Items(member).ActiveAccountsCount > 0 Then
+        If householdMember.Active And householdMember.ActiveAccountsCount > 0 Then
             'Add the client's name unless it's the first member and it matches the household name
             Dim addName As Boolean
-            addName = Not (member = 0 And householdMembers.Items(member).NameOfMember = household.NameOfHousehold)
-            
+            addName = (member = 0 And householdMember.NameOfMember <> household.NameOfHousehold) Or household.ActiveMemberCount > 1
+    
             'Add the member to the report
-            firstMemberAdded = AddMemberToReport(reportSheet, householdMembers.Items(member), addName, firstMemberAdded)
+            firstMemberAdded = AddMemberToReport(reportSheet, householdMember, addName, firstMemberAdded)
             
             If member < householdMembers.count - 1 Then
                 'There are more members, see if they have active accounts
@@ -190,7 +199,7 @@ Private Sub SetColumnWidths(sht As Worksheet)
     End With
 End Sub
 
-Private Function AddMemberToReport(reportSheet As Worksheet, member As Variant, addName As Boolean, isFirstMemberAdded As Boolean) As Boolean
+Private Function AddMemberToReport(reportSheet As Worksheet, member As clsMember, addName As Boolean, isFirstMemberAdded As Boolean) As Boolean
     If isFirstMemberAdded Then
         'Get the starting position in case a page break needs to be added
         Dim memberStartRange As Range
@@ -203,7 +212,11 @@ Private Function AddMemberToReport(reportSheet As Worksheet, member As Variant, 
     
     If addName Then
         'Add the member's name
-        PrintRange.Value2 = member.FName & " " & member.LName
+        If member.lName = "Schaefer" Then
+            PrintRange.Value2 = member.fName
+        Else
+            PrintRange.Value2 = member.fName & " " & member.lName
+        End If
         PrintRange.Font.Bold = True
         PrintRange.Font.Size = 12
         NextLine
@@ -255,6 +268,15 @@ Private Function AddMemberToReport(reportSheet As Worksheet, member As Variant, 
     'The member was added to the report; return true
     AddMemberToReport = True
 End Function
+
+Private Sub ReportAccountBeneCounts(allAccounts As Dictionary)
+    Dim acctItem As Variant
+    For Each acctItem In allAccounts.Items
+        Dim acct As clsAccount
+        Set acct = acctItem
+        Debug.Print acct.NameOfAccount & vbTab & acct.Benes.count
+    Next acctItem
+End Sub
 
 Private Function PageBreakTestStart() As Integer
     'Get the current number of page breaks
@@ -340,7 +362,7 @@ Private Function AddAccountToReport(account As clsAccount) As Boolean
     NextLine
     
     'Get the sorted accounts
-    Dim accountBenes As Collection
+    Dim accountBenes As Dictionary
     Set accountBenes = account.SortedBenes
     
     'Add beneficiaries
@@ -350,17 +372,17 @@ Private Function AddAccountToReport(account As clsAccount) As Boolean
         NextLine
     Else
         'Add the beneficiary headings
-        AddBeneHeadings
+        AddBeneHeadings account.Tag
 
         NextLine
             
         Dim primaryTotal As Double
         Dim contingentTotal As Double
-        Dim bene As Integer
-        For bene = 1 To accountBenes.count
+        Dim bene As Variant
+        For Each bene In accountBenes.Items
             'Get the beneficiary
             Dim accountBene As clsBeneficiary
-            Set accountBene = accountBenes(bene)
+            Set accountBene = bene
             
             'Add the beneficiary's percentage to its respective total
             If accountBene.Level = "P" Then
@@ -381,7 +403,7 @@ Private Function AddAccountToReport(account As clsAccount) As Boolean
             errorMessage = "Beneficiary percentages don't equal 100% for " & account.NameOfAccount & ". Proceed with report?" & vbLf & vbLf
             
             Dim errorBene As Variant
-            For Each errorBene In accountBenes
+            For Each errorBene In accountBenes.Items
                 If primaryTotal <> 100 And errorBene.Level = "P" Then
                     errorMessage = errorMessage & errorBene.NameOfBeneficiary & vbTab & errorBene.Level & vbTab & errorBene.Percent & vbLf
                 ElseIf (contingentTotal > 0 And contingentTotal <> 100) And errorBene.Level = "C" Then
@@ -407,9 +429,9 @@ Private Function AddAccountToReport(account As clsAccount) As Boolean
 End Function
 
 Private Function AddAsOfDate(account As clsAccount) As String
-    If account.custodian <> "TD Ameritrade Institutional" Then
+    If account.custodian <> ProjectGlobals.DefaultCustodian Then
         If account.BenesUpdated > CDate(0) Then
-            AddAsOfDate = " (As of " & Format(account.BenesUpdated, "m/d/yyyy") & ")"
+            AddAsOfDate = " (Last confirmed " & Format(account.BenesUpdated, "m/d/yyyy") & ")"
         Else
             AddAsOfDate = vbNullString
         End If
@@ -427,6 +449,8 @@ Private Sub PrintNoBeneficiaryInfo(account As clsAccount)
             PrintRange.value = WECBlurb
         ElseIf account.Tag = "Charitable" Then
             PrintRange.value = IneligibleBlurb
+        ElseIf account.Tag = "Edvest" Then
+            PrintRange.value = EdvestBlurb
         ElseIf account.Tag = "Form" Then
             PrintRange.value = ""
         ElseIf account.Tag = "Online" Then
@@ -488,9 +512,13 @@ Private Sub SetRowHeightAndMerge()
     PrintRange.RowHeight = rHeight
 End Sub
 
-Private Sub AddBeneHeadings()
+Private Sub AddBeneHeadings(accountTag As String)
     With PrintRange
-        .Value2 = "Beneficiary Name"
+        If accountTag = "Edvest" Then
+            .Value2 = "Successor Account Owner Name"
+        Else
+            .Value2 = "Beneficiary Name"
+        End If
         .IndentLevel = 2
         .Font.Underline = True
         .Offset(0, 1).Value2 = "Bene Type"
@@ -539,5 +567,3 @@ End Sub
 Private Sub ShortLine()
     PrintRange.RowHeight = 4.5
 End Sub
-
-

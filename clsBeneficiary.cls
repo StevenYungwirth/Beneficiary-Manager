@@ -23,11 +23,11 @@ Private Sub Class_Initialize()
     Set m_account = New clsAccount
 End Sub
 
-Public Property Get ID() As Integer
-    ID = m_id
+Public Property Get id() As Integer
+    id = m_id
 End Property
 
-Public Property Let ID(value As Integer)
+Public Property Let id(value As Integer)
     m_id = value
 End Property
 
@@ -63,11 +63,11 @@ Public Property Let Percent(value As Double)
     m_percent = value
 End Property
 
-Public Property Get AddDate() As String
-    AddDate = m_addDate
+Public Property Get addDate() As String
+    addDate = m_addDate
 End Property
 
-Public Property Let AddDate(value As String)
+Public Property Let addDate(value As String)
     m_addDate = value
 End Property
 
@@ -79,19 +79,19 @@ Public Property Let AddedBy(value As String)
     m_addedBy = value
 End Property
 
-Public Property Get UpdatedDate() As Date
+Public Property Get UpdatedDate() As String
     UpdatedDate = m_updatedDate
 End Property
 
-Public Property Let UpdatedDate(value As Date)
+Public Property Let UpdatedDate(value As String)
     m_updatedDate = value
 End Property
 
-Public Property Get UpdatedBy() As String
-    UpdatedBy = m_updatedBy
+Public Property Get updatedBy() As String
+    updatedBy = m_updatedBy
 End Property
 
-Public Property Let UpdatedBy(value As String)
+Public Property Let updatedBy(value As String)
     m_updatedBy = value
 End Property
 

@@ -10,12 +10,21 @@ Attribute VB_Exposed = False
 Option Explicit
 Private m_name As String
 Private m_members As Dictionary
+Private m_morningstarID As String
 Private m_redtailID As Long
 Private m_active As Boolean
 
 Private Sub Class_Initialize()
     Set m_members = New Dictionary
 End Sub
+
+Public Property Get morningstarID() As String
+    morningstarID = m_morningstarID
+End Property
+
+Public Property Let morningstarID(value As String)
+    m_morningstarID = value
+End Property
 
 Public Property Get redtailID() As Long
     redtailID = m_redtailID
@@ -34,17 +43,27 @@ Public Property Let NameOfHousehold(value As String)
 End Property
 
 Public Property Get Active() As Boolean
+    'Return true if at least one member is active
+    Active = m_active
+End Property
+
+Public Property Let Active(value As Boolean)
+    m_active = value
+End Property
+
+Public Property Get members() As Dictionary
+    Set members = m_members
+End Property
+
+Public Property Get ActiveMemberCount() As Integer
+    Dim count As Integer
     Dim member As Variant
     For Each member In m_members.Items
         If member.Active Then
-            'Return true if at least one member is active
-            Active = True
+            count = count + 1
         End If
     Next member
-End Property
-
-Public Property Get Members() As Dictionary
-    Set Members = m_members
+    ActiveMemberCount = count
 End Property
 
 Public Property Get SortedMembers() As Dictionary
@@ -76,14 +95,23 @@ Public Sub AddMember(member As clsMember)
     If Not m_members.Exists(member.NameOfMember) Then
         'The member isn't in the household; add them
         member.ContainingHousehold = Me
-        m_members.Add member.LName & ", " & member.FName, member
+        m_members.Add member.lName & ", " & member.fName, member
     End If
 End Sub
 
-Public Function GetMember(lastNameCommaFirstName As String) As clsMember
+Public Function GetMemberFromSeparatedName(lastName As String, firstName As String) As clsMember
+    'If the member name is in the member dictionary, return that member
+    Dim memberKey As String
+    memberKey = lastName & ", " & firstName
+    If m_members.Exists(memberKey) Then
+        Set GetMemberFromSeparatedName = m_members(memberKey)
+    End If
+End Function
+
+Public Function GetMemberFromLastCommaFirst(lastNameCommaFirstName As String) As clsMember
     'If the member name is in the member dictionary, return that member
     If m_members.Exists(lastNameCommaFirstName) Then
-        Set GetMember = m_members(lastNameCommaFirstName)
+        Set GetMemberFromLastCommaFirst = m_members(lastNameCommaFirstName)
     End If
 End Function
 
@@ -93,13 +121,13 @@ Public Function GetAccountByNumber(acctNum As String) As clsAccount
     For Each acctMemberItem In m_members.Items
         Dim acctMember As clsMember
         Set acctMember = acctMemberItem
-        If acctMember.accounts.Exists(acctNum) Then
-            Set GetAccountByNumber = acctMember.accounts(acctNum)
+        If acctMember.Accounts.Exists(acctNum) Then
+            Set GetAccountByNumber = acctMember.Accounts(acctNum)
             Exit Function
         End If
     
         Dim account As Variant
-        For Each account In acctMember.accounts.Items
+        For Each account In acctMember.Accounts.Items
             If account.Number = acctNum Then
                 'The account number matches; return the account
                 Set GetAccountByNumber = account

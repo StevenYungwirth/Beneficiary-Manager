@@ -8,10 +8,14 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Option Explicit
+Private m_redtailID As Long
+Private m_type As String
 Private m_name As String
 Private m_fName As String
 Private m_lName As String
-Private m_fullName As String
+Private m_nickname As String
+Private m_status As String
+Private m_dateOfDeath As String
 Private m_household As clsHousehold
 Private m_accounts As Dictionary
 Private m_deceased As Boolean
@@ -21,6 +25,22 @@ Private Sub Class_Initialize()
     Set m_household = New clsHousehold
     Set m_accounts = New Dictionary
 End Sub
+
+Public Property Get redtailID() As Long
+    redtailID = m_redtailID
+End Property
+
+Public Property Let redtailID(value As Long)
+    m_redtailID = value
+End Property
+
+Public Property Get TypeOfMember() As String
+    TypeOfMember = m_type
+End Property
+
+Public Property Let TypeOfMember(value As String)
+    m_type = value
+End Property
 
 Public Property Get NameOfMember() As String
     If Len(m_name) = 0 And Len(m_fName) > 0 And Len(m_lName) > 0 Then
@@ -32,53 +52,58 @@ Public Property Get NameOfMember() As String
 End Property
 
 Public Property Let NameOfMember(value As String)
-    m_name = value
+    m_name = Trim(value)
     
-    'If name has a comma, split the first and last name
-    If InStr(value, ",") > 0 Then
-        'Take everything before the comma as the last name
-        m_lName = Left(value, InStr(value, ",") - 1)
-        
-        'Take everything after the comma as the first name
-        m_fName = Right(value, Len(value) - InStr(value, ",") - 1)
-    End If
+    'Extract the first name, last name, and nickname from value
+    SplitName Trim(value)
 End Property
 
-Public Property Get FName() As String
-    FName = m_fName
+Public Property Get fName() As String
+    fName = m_fName
 End Property
 
-Public Property Let FName(value As String)
-    m_fName = value
+Public Property Let fName(value As String)
+    m_fName = Trim(value)
 End Property
 
-Public Property Get LName() As String
-    LName = m_lName
+Public Property Get lName() As String
+    lName = m_lName
 End Property
 
-Public Property Let LName(value As String)
-    m_lName = value
+Public Property Let lName(value As String)
+    m_lName = Trim(value)
 End Property
 
-Public Property Get FullName() As String
-    If Len(m_fullName) = 0 And Len(m_fName) > 0 And Len(m_lName) > 0 Then
-        'Return "[Last], [First]"
-        FullName = m_lName & ", " & m_fName
+Public Property Get nickname() As String
+    nickname = m_nickname
+End Property
+
+Public Property Let nickname(value As String)
+    m_nickname = Trim(value)
+End Property
+
+Public Property Get Status() As String
+    Status = m_status
+End Property
+
+Public Property Let Status(value As String)
+    m_status = value
+End Property
+
+Public Property Get dateOfDeath() As String
+    dateOfDeath = m_dateOfDeath
+End Property
+
+Public Property Let dateOfDeath(value As String)
+    If value = vbNullString Then
+        m_dateOfDeath = value
     Else
-        FullName = m_fullName
+        m_dateOfDeath = Format(value, "mm/dd/yyyy")
     End If
-End Property
-
-Public Property Let FullName(value As String)
-    m_fullName = value
 End Property
 
 Public Property Get Deceased() As Boolean
-    Deceased = m_deceased
-End Property
-
-Public Property Let Deceased(value As Boolean)
-    m_deceased = value
+    Deceased = (m_dateOfDeath <> vbNullString)
 End Property
 
 Public Property Get Active() As Boolean
@@ -89,8 +114,8 @@ Public Property Let Active(value As Boolean)
     m_active = value
 End Property
 
-Public Property Get accounts() As Dictionary
-    Set accounts = m_accounts
+Public Property Get Accounts() As Dictionary
+    Set Accounts = m_accounts
 End Property
 
 Public Property Get SortedAccounts() As Dictionary
@@ -109,18 +134,19 @@ Public Property Get SortedAccounts() As Dictionary
     Next memberAccount
     
     'Sort the array by account name
-    SortAccounts accountArray
+    Dim sortedAccountArray() As clsAccount
+    sortedAccountArray = SortAccounts(accountArray)
     
     'Convert the array back into a dictionary and return it
     Set SortedAccounts = New Dictionary
-    For memberAccount = 0 To UBound(accountArray)
+    For memberAccount = 0 To UBound(sortedAccountArray)
         'Add the account to the dictionary, using different keys for heldaway accounts
-        If accountArray(memberAccount).custodian = "TD Ameritrade Institutional" Then
-            If SortedAccounts.Exists(accountArray(memberAccount).Number) Then Stop
-            SortedAccounts.Add accountArray(memberAccount).Number, accountArray(memberAccount)
+        If sortedAccountArray(memberAccount).custodian = ProjectGlobals.DefaultCustodian Then
+            If SortedAccounts.Exists(sortedAccountArray(memberAccount).Number) Then Stop
+            SortedAccounts.Add sortedAccountArray(memberAccount).Number, sortedAccountArray(memberAccount)
         Else
-            If SortedAccounts.Exists(accountArray(memberAccount).NameOfAccount & accountArray(memberAccount).Number) Then Stop
-            SortedAccounts.Add accountArray(memberAccount).NameOfAccount & accountArray(memberAccount).Number, accountArray(memberAccount)
+            If SortedAccounts.Exists(sortedAccountArray(memberAccount).NameOfAccount & sortedAccountArray(memberAccount).Number) Then Stop
+            SortedAccounts.Add sortedAccountArray(memberAccount).NameOfAccount & sortedAccountArray(memberAccount).Number, sortedAccountArray(memberAccount)
         End If
     Next memberAccount
 End Property
@@ -134,7 +160,8 @@ Public Property Let ContainingHousehold(value As clsHousehold)
 End Property
 
 Public Sub AddAccount(acct As clsAccount)
-    acct.Owner = Me
+    acct.owner = Me
+    If m_accounts.Exists(acct.NameOfAccount & acct.Number) Then Stop
     m_accounts.Add acct.NameOfAccount & acct.Number, acct
 End Sub
 
@@ -160,7 +187,45 @@ Public Function ActiveAccountsCount() As Integer
     ActiveAccountsCount = count
 End Function
 
-Private Sub SortAccounts(accountArr() As clsAccount)
+Private Sub SplitName(fullName As String)
+    If InStr(fullName, ",") = 0 Then
+        'Name cannot be split
+        Exit Sub
+    End If
+    
+    Dim firstName As String, lastName As String, nickname As String
+    
+    'Take everything before the comma as the last name
+    lastName = Left(fullName, InStr(fullName, ",") - 1)
+    
+    'Take everything after the comma as the first name
+    firstName = Right(fullName, Len(fullName) - InStr(fullName, ",") - 1)
+    
+    'Extract the nickname if the name has a parenthesis
+    If InStr(firstName, "(") > 0 Then
+        'Take everything between the parentheses as the nickname
+        nickname = Mid(firstName, InStr("(", firstName) + 1, Len(firstName) - InStr("(", firstName) - 1)
+        
+        'Reset the first name
+        firstName = Left(firstName, InStr(firstName, "(") - 2)
+    End If
+    
+    'Take out the middle initial
+    If InStr(firstName, " ") > 0 Then
+        If Right(firstName, 1) = "." Then
+            firstName = Left(firstName, Len(firstName) - 3)
+        ElseIf Mid(firstName, Len(firstName) - 1, 1) = " " Then
+            firstName = Left(firstName, Len(firstName) - 2)
+        End If
+    End If
+    
+    'Set the first, last, and nicknames
+    m_fName = firstName
+    m_lName = lastName
+    m_nickname = nickname
+End Sub
+
+Private Function SortAccounts(accountArr() As clsAccount) As clsAccount()
     Dim i As Integer
     Dim j As Integer
     For i = LBound(accountArr) To UBound(accountArr)
@@ -181,4 +246,6 @@ Private Sub SortAccounts(accountArr() As clsAccount)
         Set accountArr(lowestIndex) = accountArr(i)
         Set accountArr(i) = temp
     Next i
-End Sub
+    
+    SortAccounts = accountArr
+End Function
